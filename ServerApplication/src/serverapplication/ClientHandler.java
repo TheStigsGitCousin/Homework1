@@ -46,30 +46,56 @@ public class ClientHandler extends Thread {
         int failedAttempts=10;
         char[] correctLetters=new char[currentWord.length()];
         byte[] msg =new byte[1024];
-        int bytesRead=0;
-        int n;
+        
         try {
             while(isConnected){
                 String hiddenWord=getHiddenWord(currentWord, correctLetters);
                 String message=hiddenWord+"|"+failedAttempts;
-                out.write(message.getBytes());
-                out.flush();
+                writeMessage(out, message);
                 
-                bytesRead=0;
-                while((n=in.read(msg, bytesRead, 256))!=-1){
-                    bytesRead+=n;
-                    if(bytesRead==1024)
-                        break;
-                    
-                    if(in.available()==0)
-                        break;
+                String input=readMessage(in, msg);
+                String[] g=input.split("|");
+                if(g.length!=2) {
+                    isConnected=false;
+                    break;
                 }
-                String input=new String(msg, 0, bytesRead);
-                
+                parseInput(g[0], g[1]);
             }
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    private String readMessage( BufferedInputStream in, byte[] msg) throws IOException {
+        int n;
+        int bytesRead=0;
+        while((n=in.read(msg, bytesRead, 256))!=-1){
+            bytesRead+=n;
+            if(bytesRead==1024)
+                break;
+            
+            if(in.available()==0)
+                break;
+        }
+        String input=new String(msg, 0, bytesRead);
+        return input;
+    }
+    
+    private void writeMessage(BufferedOutputStream out, String message) throws IOException {
+        out.write(message.getBytes());
+        out.flush();
+    }
+    
+    private void parseInput(String command, String data){
+        if(command.equals("guess")){
+            parseGuess();
+        } else if(command.equals("close")){
+            
+        }
+    }
+    
+    private void parseGuess(){
+        
     }
     
     private String getHiddenWord(String word, char[] guessedLetters){
