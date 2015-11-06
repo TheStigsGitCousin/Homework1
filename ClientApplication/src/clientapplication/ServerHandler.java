@@ -5,32 +5,30 @@
 */
 package clientapplication;
 
+import clientapplication.Views.ClientPanel;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.swing.SwingWorker;
 
 /**
  *
  * @author David
  */
-public class ClientHandler extends Thread {
+public class ServerHandler extends Thread {
     private final static String SOCKET_CONNECTION_FAILURE="Socket couldn't connect to host";
     
     private final int port;
     private final String host;
-    private final ClientApplication gui;
+    private final ClientPanel gui;
     private final LinkedBlockingQueue<String> commands =
-            new LinkedBlockingQueue<String>();
+            new LinkedBlockingQueue<>();
     private BufferedInputStream in;
     private BufferedOutputStream out;
     private Socket socket;
     
-    public ClientHandler(ClientApplication gui, int port , String host){
+    public ServerHandler(ClientPanel gui, int port , String host){
         this.port=port;
         this.host=host;
         this.gui=gui;
@@ -39,6 +37,7 @@ public class ClientHandler extends Thread {
     @Override
     public void run(){
         connect();
+        gui.connected();
         byte[] message=new byte[1024];
         while(true){
             try {
@@ -52,12 +51,16 @@ public class ClientHandler extends Thread {
                     gui.messageReceived(response);
                 }
             } catch (InterruptedException ex) {
-                gui.statusChanged(SOCKET_CONNECTION_FAILURE);
+                gui.statusChanged(ex.toString());
                 break;
             } catch (IOException ex) {
-                gui.statusChanged(SOCKET_CONNECTION_FAILURE);
+                gui.statusChanged(ex.toString());
             }
         }
+    }
+    
+    public void addCommand(String command){
+        commands.add(command);
     }
 
     private String getServerResponse(byte[] message) throws IOException {

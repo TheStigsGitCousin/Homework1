@@ -30,26 +30,4 @@ public class ClientApplication {
         // A change
     }
     
-    public void statusChanged(String statusMessage){
-        SwingUtilities.invokeLater(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                clientPanel.setStatusMessage(statusMessage);
-            }
-        });
-    }
-    
-    public void messageReceived(String response){
-        SwingUtilities.invokeLater(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                clientPanel.messageReceived(response);
-            }
-        });
-    }
-    
 }

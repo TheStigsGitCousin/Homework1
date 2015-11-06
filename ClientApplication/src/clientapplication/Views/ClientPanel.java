@@ -5,6 +5,7 @@
 */
 package clientapplication.Views;
 
+import clientapplication.ServerHandler;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.Panel;
@@ -15,59 +16,110 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 /**
  *
  * @author David
  */
-public class ClientPanel extends Panel implements ActionListener {
+public class ClientPanel extends Panel {
     // Game components
-    private JLabel currentGuessLabel=new JLabel();
+    private JLabel statusMessageLabel=new JLabel("");
+    private JLabel currentGuessLabel=new JLabel("Start the game!");
     private JTextField guessTextField=new JTextField(10);
     private JButton guessButton=new JButton("Guess");
     // Connection components
-    private JTextField ipTextField=new JTextField(10);
+    private JTextField hostTextField=new JTextField(10);
     private JTextField portTextField=new JTextField(10);
     private JButton connectButton=new JButton("Connect");
+    
+    private ServerHandler serverHandler;
+    
     public ClientPanel(){
         setLayout(new BorderLayout());
         constructComponents();
     }
     
     private void constructComponents(){
+        // Panel with components for connection establishment
+        hostTextField.addActionListener((ActionEvent e)->{ connect(); });
+        connectButton.addActionListener((ActionEvent e)->{ connect(); });
         JPanel connectionPanel=new JPanel();
         connectionPanel.setLayout(new FlowLayout());
-        connectionPanel.add(new JLabel("ip-adress"));
-        connectionPanel.add(ipTextField);
+        connectionPanel.add(new JLabel("host"));
+        connectionPanel.add(hostTextField);
         connectionPanel.add(new JLabel("port"));
         connectionPanel.add(portTextField);
         connectionPanel.add(connectButton);
+        // Add connectionPanel to ClientPanel
         add(connectionPanel, BorderLayout.NORTH);
         
-        guessButton.addActionListener(this);
-        guessTextField.addActionListener(this);
+        guessButton.addActionListener((ActionEvent e)->{ guess(); });
+        guessButton.setEnabled(false);
+        guessTextField.addActionListener((ActionEvent e)->{ guess(); });
+        guessTextField.setEnabled(false);
         JPanel gamePanel=new JPanel();
         gamePanel.setLayout(new BorderLayout());
         JPanel guessPanel=new JPanel();
         guessPanel.setLayout(new FlowLayout());
-        guessPanel.add(new JLabel("message"));
+        guessPanel.add(new JLabel("guess"));
         guessPanel.add(guessTextField);
         guessPanel.add(guessButton);
         gamePanel.add(guessPanel, BorderLayout.NORTH);
         gamePanel.add(currentGuessLabel, BorderLayout.CENTER);
         add(gamePanel, BorderLayout.CENTER);
-    }
-
-    public void setStatusMessage(String message){
-        // statusMessageTextField.setText(message);
+        add(statusMessageLabel, BorderLayout.SOUTH);
     }
     
-    public void messageReceived(String message){
-        // currentGameTextField.setText(message);
+    private void guess(){
+        serverHandler.addCommand("guess|"+guessTextField.getText());
     }
     
-    @Override
-    public void actionPerformed(ActionEvent e) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    private void connect(){
+        int port;
+        String host;
+        try{
+            port=Integer.parseInt(portTextField.getText());
+        }catch(NumberFormatException e){
+            port=80;
+        }
+        host=hostTextField.getText().equals("")?"localhost":hostTextField.getText();
+        serverHandler=new ServerHandler(this, port, host);
+        serverHandler.start();
+        serverHandler.addCommand("start game");
+    }
+    
+    public void connected(){
+        SwingUtilities.invokeLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                guessButton.setEnabled(true);
+                guessTextField.setEnabled(true);
+            }
+        });
+    }
+    
+    public void statusChanged(String statusMessage){
+        SwingUtilities.invokeLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                statusMessageLabel.setText(statusMessage);
+            }
+        });
+    }
+    
+    public void messageReceived(String response){
+        SwingUtilities.invokeLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                currentGuessLabel.setText(response);
+            }
+        });
     }
 }
