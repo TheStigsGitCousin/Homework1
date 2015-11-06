@@ -73,6 +73,9 @@ public class ClientPanel extends Panel {
     
     private void guess(){
         serverHandler.addCommand("guess|"+guessTextField.getText());
+        synchronized(serverHandler){
+            serverHandler.notify();
+        }
     }
     
     private void connect(){
@@ -81,12 +84,12 @@ public class ClientPanel extends Panel {
         try{
             port=Integer.parseInt(portTextField.getText());
         }catch(NumberFormatException e){
-            port=80;
+            port=8080;
         }
         host=hostTextField.getText().equals("")?"localhost":hostTextField.getText();
         serverHandler=new ServerHandler(this, port, host);
         serverHandler.start();
-        serverHandler.addCommand("start game");
+        serverHandler.addCommand("start game|");
     }
     
     public void connected(){

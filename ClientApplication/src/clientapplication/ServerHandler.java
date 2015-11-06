@@ -22,8 +22,7 @@ public class ServerHandler extends Thread {
     private final int port;
     private final String host;
     private final ClientPanel gui;
-    private final LinkedBlockingQueue<String> commands =
-            new LinkedBlockingQueue<>();
+    private final LinkedBlockingQueue<String> commands = new LinkedBlockingQueue<>();
     private BufferedInputStream in;
     private BufferedOutputStream out;
     private Socket socket;
@@ -41,13 +40,17 @@ public class ServerHandler extends Thread {
         byte[] message=new byte[1024];
         while(true){
             try {
-                synchronized(commands){
-                    while(commands.isEmpty())
-                        wait();
-                    
+                synchronized(this){
+                    while(commands.isEmpty()){
+                        System.out.println("Client: Waiting for command");
+                        this.wait();
+                    }
+                    System.out.println("Client: Writing command");
                     out.write(commands.take().getBytes());
+                    out.flush();
                     
                     String response=getServerResponse(message);
+                    System.out.println("Client: Server response = "+response);
                     gui.messageReceived(response);
                 }
             } catch (InterruptedException ex) {
@@ -60,9 +63,10 @@ public class ServerHandler extends Thread {
     }
     
     public void addCommand(String command){
+        System.out.println("Client: Added command = "+command);
         commands.add(command);
     }
-
+    
     private String getServerResponse(byte[] message) throws IOException {
         int bytesRead=0,n;
         while((n=in.read(message, bytesRead, 256))!=-1){
@@ -82,6 +86,7 @@ public class ServerHandler extends Thread {
             socket=new Socket(host,port);
             in=new BufferedInputStream(socket.getInputStream());
             out=new BufferedOutputStream(socket.getOutputStream());
+            System.out.println("Client: Created socket with host = "+host+", port = "+port);
         } catch (IOException ex) {
             gui.statusChanged(SOCKET_CONNECTION_FAILURE);
         }
