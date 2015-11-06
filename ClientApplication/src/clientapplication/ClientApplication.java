@@ -7,6 +7,7 @@ package clientapplication;
 
 import clientapplication.Views.ClientPanel;
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
 /**
  *
@@ -14,17 +15,41 @@ import javax.swing.JFrame;
  */
 public class ClientApplication {
 
+    private static ClientPanel clientPanel=new ClientPanel();
+    
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
         // TODO code application logic here
         JFrame frame=new JFrame("ClientApplication");
-        frame.setContentPane(new ClientPanel());
+        frame.setContentPane(clientPanel);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.pack();
         frame.setVisible(true);
-        
+        // A change
+    }
+    
+    public void statusChanged(String statusMessage){
+        SwingUtilities.invokeLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                clientPanel.setStatusMessage(statusMessage);
+            }
+        });
+    }
+    
+    public void messageReceived(String response){
+        SwingUtilities.invokeLater(new Runnable()
+        {
+            @Override
+            public void run()
+            {
+                clientPanel.messageReceived(response);
+            }
+        });
     }
     
 }
