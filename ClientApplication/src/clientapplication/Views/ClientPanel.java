@@ -110,6 +110,7 @@ public class ClientPanel extends Panel {
             @Override
             public void run()
             {
+                System.out.println("Client: Status = "+statusMessage);
                 statusMessageLabel.setText(statusMessage);
             }
         });
@@ -121,6 +122,7 @@ public class ClientPanel extends Panel {
             @Override
             public void run()
             {
+                System.out.println("Client: Response = "+response);
                 currentGuessLabel.setText(response);
             }
         });

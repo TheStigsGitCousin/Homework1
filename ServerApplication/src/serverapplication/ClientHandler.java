@@ -55,7 +55,7 @@ public class ClientHandler extends Thread {
                 String[] response=d.split("\\|");
                 System.out.println("Server: Response length = "+response.length);
                 if(response.length==2)
-                    result=tryParseCommand(response[0], response[1], correctLetters);
+                    result=tryParseCommand(response[0], response[1], correctLetters, currentWord);
                 
                 String hiddenWord=getHiddenWord(currentWord, correctLetters);
                 System.out.println("Letters size = '"+correctLetters.size());
@@ -79,10 +79,10 @@ public class ClientHandler extends Thread {
         }
     }
     
-    private boolean tryParseCommand(String command, String data, ArrayList<Character> list){
+    private boolean tryParseCommand(String command, String data, ArrayList<Character> list, String word){
         System.out.println("command = '"+command+", data = "+data);
         if(command.equals("guess")){
-            if(data.length()==list.size()){
+            if(data.equals(word)){
                 
             } else if(data.length()==1){
                 if(!list.contains(data.charAt(0))){
