@@ -89,7 +89,7 @@ public class ClientPanel extends Panel {
         host=hostTextField.getText().equals("")?"localhost":hostTextField.getText();
         serverHandler=new ServerHandler(this, port, host);
         serverHandler.start();
-        serverHandler.addCommand("start game|");
+        serverHandler.addCommand("startgame| ");
     }
     
     public void connected(){

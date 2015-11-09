@@ -23,6 +23,7 @@ import java.util.logging.Logger;
  */
 public class ClientHandler extends Thread {
     private final Socket socket;
+    private int failedAttempts=10;
     
     public ClientHandler(Socket clientSocket){
         this.socket=clientSocket;
@@ -43,23 +44,23 @@ public class ClientHandler extends Thread {
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
         }
-        int failedAttempts=10;
+        
         byte[] msg=new byte[1024];
         ArrayList<Character> correctLetters=new ArrayList<>();
-        boolean result=true;
+        String message="";
         try {
-            while(result){
+            while(message!=null){
                 System.out.println("Server: Waiting for client");
                 String d=getClientResponse(in, msg);
                 System.out.println("Server: Response = "+d);
                 String[] response=d.split("\\|");
                 System.out.println("Server: Response length = "+response.length);
                 if(response.length==2)
-                    result=tryParseCommand(response[0], response[1], correctLetters, currentWord);
+                    message=tryParseCommand(response[0], response[1], correctLetters, currentWord);
                 
-                String hiddenWord=getHiddenWord(currentWord, correctLetters);
+                System.out.println("Message = "+message);
+                
                 System.out.println("Letters size = '"+correctLetters.size());
-                String message=hiddenWord+"|"+failedAttempts;
                 out.write(message.getBytes());
                 out.flush();
             }
@@ -79,21 +80,44 @@ public class ClientHandler extends Thread {
         }
     }
     
-    private boolean tryParseCommand(String command, String data, ArrayList<Character> list, String word){
+    private String constructWordMessage(String currentWord, ArrayList<Character> correctLetters) {
+        String hiddenWord=getHiddenWord(currentWord, correctLetters);
+        String message=hiddenWord+"|"+failedAttempts;
+        return message;
+    }
+    
+    private String tryParseCommand(String command, String data, ArrayList<Character> list, String word){
         System.out.println("command = '"+command+", data = "+data);
+        String message=null;
         if(command.equals("guess")){
-            if(data.equals(word)){
-                
-            } else if(data.length()==1){
-                if(!list.contains(data.charAt(0))){
+            if(data.length()==1){
+                if(word.contains(Character.toString(data.charAt(0))) && !list.contains(data.charAt(0))){
                     list.add(data.charAt(0));
                     System.out.println("Added '"+data.charAt(0)+"'");
+                }else{
+                    failedAttempts--;
                 }
+                message=constructWordMessage(word, list);
             }else{
-                return false;
+                failedAttempts--;
+            }
+            if(data.equals(word) || containsList(word, list)){
+                message="Congratulations! Score = "+failedAttempts;
+            } else if(failedAttempts==0){
+                message="GAME OVER!";
             }
         } else if(command.equals("close")){
-            return false;
+            message=null;
+        } else if(command.equals("startgame")){
+            message=constructWordMessage(word, list);
+        }
+        return message;
+    }
+    
+    private boolean containsList(String word, ArrayList<Character> list){
+        for(char c : word.toCharArray()){
+            if(!list.contains(c))
+                return false;
         }
         return true;
     }
