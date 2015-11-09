@@ -91,9 +91,11 @@ public class ClientHandler extends Thread {
         String message=null;
         if(command.equals("guess")){
             if(data.length()==1){
-                if(word.contains(Character.toString(data.charAt(0))) && !list.contains(data.charAt(0))){
-                    list.add(data.charAt(0));
-                    System.out.println("Added '"+data.charAt(0)+"'");
+                if(word.contains(Character.toString(data.charAt(0)))){
+                    if(!list.contains(data.charAt(0))){
+                        list.add(data.charAt(0));
+                        System.out.println("Added '"+data.charAt(0)+"'");
+                    }
                 }else{
                     failedAttempts--;
                 }
