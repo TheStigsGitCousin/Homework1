@@ -5,6 +5,10 @@
 */
 package rpspeerapplication;
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.swing.JFrame;
+
 /**
  *
  * @author David
@@ -15,7 +19,11 @@ public class RPSPeerApplication {
      * @param args the command line arguments
      */
     public static void main(String[] args) {
-        
+        JFrame frame=new JFrame("ClientApplication");
+        frame.setContentPane(new ClientPanel());
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.pack();
+        frame.setVisible(true);
     }
     
 }

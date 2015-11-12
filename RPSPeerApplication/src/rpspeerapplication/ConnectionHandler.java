@@ -20,16 +20,42 @@ import java.net.Socket;
 import java.nio.channels.ClosedChannelException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.LinkedBlockingQueue;
 /**
  *
  * @author David
  */
 public class ConnectionHandler implements Runnable {
-    private static final int PORT=5656;
+    public int LISTENING_PORT=5656;
+    public int CONNECTING_PORT=6565;
     private static final int BUFFER_CAPACITY=3072;
     private ServerSocketChannel serverSocketChannel;
     private Selector selector;
-    private Map<SocketChannel,byte[]> dataTracking = new HashMap<SocketChannel, byte[]>();
+    public Map<SocketChannel,byte[]> dataTracking = new HashMap<SocketChannel, byte[]>();
+    public final LinkedBlockingQueue<String> commands = new LinkedBlockingQueue<>();
+    
+    public void addCommand(String message){
+        commands.add(message);
+    }
+    
+    public void Connect(){
+        new Thread( new Runnable(){
+            
+            @Override
+            public void run() {
+                try {
+                    // TODO code application logic here
+                    SocketChannel socketChannel=SocketChannel.open();
+                    socketChannel.configureBlocking(false);
+                    socketChannel.connect(new InetSocketAddress(CONNECTING_PORT));
+                    socketChannel.register(selector, SelectionKey.OP_CONNECT);
+                } catch (IOException ex) {
+                    Logger.getLogger(RPSPeerApplication.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }).start();
+        
+    }
     
     @Override
     public void run() {
@@ -39,14 +65,9 @@ public class ConnectionHandler implements Runnable {
             serverSocketChannel=ServerSocketChannel.open();
             serverSocketChannel.configureBlocking(false);
             serverSocket=serverSocketChannel.socket();
-            serverSocket.bind(new InetSocketAddress(PORT));
+            serverSocket.bind(new InetSocketAddress(LISTENING_PORT));
             selector=Selector.open();
             serverSocketChannel.register(selector, SelectionKey.OP_ACCEPT);
-            
-            SocketChannel socketChannel=SocketChannel.open();
-            socketChannel.configureBlocking(false);
-            socketChannel.connect(new InetSocketAddress(PORT));
-            socketChannel.register(selector, SelectionKey.OP_CONNECT);
             
             processConnection();
         } catch (IOException ex) {
@@ -59,9 +80,9 @@ public class ConnectionHandler implements Runnable {
         }
     }
     
-    private void processConnection() throws IOException {
+    private synchronized void processConnection() throws IOException {
         while(true){
-            int numberOfKeys=selector.select();
+            int numberOfKeys=selector.selectNow();
             if(numberOfKeys>0){
                 Iterator keyIterator=selector.selectedKeys().iterator();
                 while(keyIterator.hasNext()){
@@ -73,14 +94,7 @@ public class ConnectionHandler implements Runnable {
                     }else if(selectedKey.isWritable()){
                         acceptWrite(selectedKey);
                     }else if(selectedKey.isConnectable()){
-                        SocketChannel socketChannel;
-                        socketChannel=(SocketChannel)selectedKey.channel();
-                        if (socketChannel.isConnectionPending()) {
-                            socketChannel.finishConnect();
-                            System.out.println("Connection was pending but now is finiehed connecting.");
-                        }
-                        socketChannel.configureBlocking(false);
-                        socketChannel.register(selector, SelectionKey.OP_WRITE | SelectionKey.OP_READ);   
+                        acceptConnection(selectedKey);
                     }
                     
                     selector.selectedKeys().remove(selectedKey);
@@ -90,17 +104,39 @@ public class ConnectionHandler implements Runnable {
         
     }
     
-    private void acceptWrite(SelectionKey selectedKey) throws IOException {
+    private void acceptConnection(SelectionKey selectedKey) throws ClosedChannelException, IOException {
         SocketChannel socketChannel;
         socketChannel=(SocketChannel)selectedKey.channel();
         if (socketChannel.isConnectionPending()) {
             socketChannel.finishConnect();
             System.out.println("Connection was pending but now is finiehed connecting.");
         }
-        byte[] data=dataTracking.get(socketChannel);
-        dataTracking.remove(socketChannel);
-        socketChannel.write(ByteBuffer.wrap(data));
-        selectedKey.interestOps(SelectionKey.OP_WRITE);
+        System.out.println("Accepted connection to socket "+socketChannel.socket());
+        socketChannel.configureBlocking(false);
+        socketChannel.register(selector, SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+    }
+    
+    private void acceptWrite(SelectionKey selectedKey) throws IOException {
+        if(commands.isEmpty())
+            return;
+        
+        SocketChannel socketChannel;
+        socketChannel=(SocketChannel)selectedKey.channel();
+        if (socketChannel.isConnectionPending()) {
+            socketChannel.finishConnect();
+            System.out.println("Connection was pending but now is finiehed connecting.");
+        }
+        byte[] data;
+        synchronized(this){
+            try {
+                data=commands.take().getBytes();
+                socketChannel.write(ByteBuffer.wrap(data));
+                System.out.println("Sent message: "+new String(data));
+                selectedKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
     }
     
     private void acceptData(SelectionKey selectedKey) throws IOException {
@@ -122,9 +158,9 @@ public class ConnectionHandler implements Runnable {
                 buffer.flip();
                 byte[] data = new byte[1000];
                 buffer.get(data, 0, numberOfBytes);
-                
+                System.out.println("Recieved message: "+new String(data));
                 dataTracking.put(socketChannel, data);
-                selectedKey.interestOps(SelectionKey.OP_WRITE);
+                selectedKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
             }catch(Exception e){
                 System.out.println("Closing socket "+socket);
                 closeSocket(socket);
