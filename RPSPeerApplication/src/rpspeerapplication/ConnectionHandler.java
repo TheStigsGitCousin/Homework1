@@ -17,6 +17,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.Buffer;
 import java.nio.channels.ClosedChannelException;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,8 +32,13 @@ public class ConnectionHandler implements Runnable {
     private static final int BUFFER_CAPACITY=3072;
     private ServerSocketChannel serverSocketChannel;
     private Selector selector;
-    public Map<SocketChannel,byte[]> dataTracking = new HashMap<SocketChannel, byte[]>();
     public final LinkedBlockingQueue<String> commands = new LinkedBlockingQueue<>();
+    HashMap<SocketChannel, ByteBuffer> channelToBufferMap=new HashMap<>();
+    
+    public final Event acceptEvent=new Event();
+    public final Event connectedEvent=new Event();
+    public final Event readEvent=new Event();
+    public final Event writeEvent=new Event();
     
     public void addCommand(String message){
         commands.add(message);
@@ -82,19 +88,19 @@ public class ConnectionHandler implements Runnable {
     
     private synchronized void processConnection() throws IOException {
         while(true){
-            int numberOfKeys=selector.selectNow();
+            int numberOfKeys=selector.select(1000); //selector.selectNow();
             if(numberOfKeys>0){
                 Iterator keyIterator=selector.selectedKeys().iterator();
                 while(keyIterator.hasNext()){
                     SelectionKey selectedKey=(SelectionKey)keyIterator.next();
                     if(selectedKey.isAcceptable()){
-                        acceptConnection();
+                        accept();
                     }else if(selectedKey.isReadable()){
-                        acceptData(selectedKey);
+                        read(selectedKey);
                     }else if(selectedKey.isWritable()){
-                        acceptWrite(selectedKey);
+                        write(selectedKey);
                     }else if(selectedKey.isConnectable()){
-                        acceptConnection(selectedKey);
+                        connected(selectedKey);
                     }
                     
                     selector.selectedKeys().remove(selectedKey);
@@ -104,7 +110,16 @@ public class ConnectionHandler implements Runnable {
         
     }
     
-    private void acceptConnection(SelectionKey selectedKey) throws ClosedChannelException, IOException {
+    private void accept() throws IOException, ClosedChannelException {
+        SocketChannel socketChannel = serverSocketChannel.accept();
+        socketChannel.configureBlocking(false);
+        System.out.println("Connection on '"+socketChannel.socket()+"'");
+        // Register SocketChannel to receive data
+        socketChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+        acceptEvent.FireEvent(socketChannel.socket());
+    }
+    
+    private void connected(SelectionKey selectedKey) throws ClosedChannelException, IOException {
         SocketChannel socketChannel;
         socketChannel=(SocketChannel)selectedKey.channel();
         if (socketChannel.isConnectionPending()) {
@@ -114,9 +129,10 @@ public class ConnectionHandler implements Runnable {
         System.out.println("Accepted connection to socket "+socketChannel.socket());
         socketChannel.configureBlocking(false);
         socketChannel.register(selector, SelectionKey.OP_WRITE | SelectionKey.OP_READ);
+        connectedEvent.FireEvent(socketChannel.socket());
     }
     
-    private void acceptWrite(SelectionKey selectedKey) throws IOException {
+    private void write(SelectionKey selectedKey) throws IOException {
         if(commands.isEmpty())
             return;
         
@@ -126,7 +142,7 @@ public class ConnectionHandler implements Runnable {
             socketChannel.finishConnect();
             System.out.println("Connection was pending but now is finiehed connecting.");
         }
-        byte[] data;
+        byte[] data=null;
         synchronized(this){
             try {
                 data=commands.take().getBytes();
@@ -137,17 +153,23 @@ public class ConnectionHandler implements Runnable {
                 Logger.getLogger(ConnectionHandler.class.getName()).log(Level.SEVERE, null, ex);
             }
         }
+        writeEvent.FireEvent(data);
     }
     
-    private void acceptData(SelectionKey selectedKey) throws IOException {
+    private void read(SelectionKey selectedKey) throws IOException {
         SocketChannel socketChannel;
         Socket socket;
-        ByteBuffer buffer=ByteBuffer.allocate(BUFFER_CAPACITY);
         socketChannel=(SocketChannel)selectedKey.channel();
-        buffer.clear();
+        ByteBuffer buffer;
+        if(channelToBufferMap.containsKey(socketChannel))
+            buffer=channelToBufferMap.get(socketChannel);
+        else
+            buffer=ByteBuffer.allocate(BUFFER_CAPACITY);
+        
         int numberOfBytes=socketChannel.read(buffer);
         System.out.println(numberOfBytes + " bytes read.");
         socket=socketChannel.socket();
+        byte[] data=null;
         if (numberOfBytes==-1){
             selectedKey.cancel();
             System.out.println("Closing socket "+socket);
@@ -156,16 +178,16 @@ public class ConnectionHandler implements Runnable {
             try{
                 // Reset buffer pointer to start of buffer
                 buffer.flip();
-                byte[] data = new byte[1000];
+                data= new byte[1000];
                 buffer.get(data, 0, numberOfBytes);
                 System.out.println("Recieved message: "+new String(data));
-                dataTracking.put(socketChannel, data);
                 selectedKey.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
             }catch(Exception e){
                 System.out.println("Closing socket "+socket);
                 closeSocket(socket);
             }
         }
+        readEvent.FireEvent(data);
     }
     
     private void closeSocket(Socket socket) {
@@ -175,16 +197,6 @@ public class ConnectionHandler implements Runnable {
         }catch(IOException ioEx){
             System.out.println("Unable to close socket");
         }
-    }
-    
-    private void acceptConnection() throws IOException, ClosedChannelException {
-        Socket socket;
-        SocketChannel socketChannel = serverSocketChannel.accept();
-        socketChannel.configureBlocking(false);
-        socket=socketChannel.socket();
-        System.out.println("Connection on '"+socket+"'");
-        // Register SocketChannel to receive data
-        socketChannel.register(selector, SelectionKey.OP_READ | SelectionKey.OP_WRITE);
     }
     
 }

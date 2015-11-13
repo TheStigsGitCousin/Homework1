@@ -41,6 +41,10 @@ public class ClientPanel extends Panel {
         int Low = 5000;
         int High = 10000;
         int R = r.nextInt(High-Low) + Low;
+        connectionHandler.acceptEvent.AddEventHandler((Object o)->{ System.out.println("accept on listening socket");});
+        connectionHandler.connectedEvent.AddEventHandler((Object o)->{ System.out.println("connected socket");});
+        connectionHandler.writeEvent.AddEventHandler((Object o)->{ System.out.println("write to socket");});
+        connectionHandler.readEvent.AddEventHandler((Object o)->{ System.out.println("read from socket");});
         connectionHandler.LISTENING_PORT=R;
         hostTextField.setText(Integer.toString(R));
         (new Thread(connectionHandler)).start();

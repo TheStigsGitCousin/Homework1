@@ -28,6 +28,7 @@ public class ClientPanel extends Panel {
     private JLabel currentGuessLabel=new JLabel("Start the game!");
     private JTextField guessTextField=new JTextField(10);
     private JButton guessButton=new JButton("Guess");
+    private JButton newGameButton=new JButton("New game");
     // Connection components
     private JTextField hostTextField=new JTextField(10);
     private JTextField portTextField=new JTextField(10);
@@ -58,6 +59,7 @@ public class ClientPanel extends Panel {
         guessButton.setEnabled(false);
         guessTextField.addActionListener((ActionEvent e)->{ guess(); });
         guessTextField.setEnabled(false);
+        newGameButton.addActionListener((ActionEvent e)->{ newGame();});
         JPanel gamePanel=new JPanel();
         gamePanel.setLayout(new BorderLayout());
         JPanel guessPanel=new JPanel();
@@ -65,10 +67,18 @@ public class ClientPanel extends Panel {
         guessPanel.add(new JLabel("guess"));
         guessPanel.add(guessTextField);
         guessPanel.add(guessButton);
+        guessPanel.add(newGameButton);
         gamePanel.add(guessPanel, BorderLayout.NORTH);
         gamePanel.add(currentGuessLabel, BorderLayout.CENTER);
         add(gamePanel, BorderLayout.CENTER);
         add(statusMessageLabel, BorderLayout.SOUTH);
+    }
+    
+    private void newGame(){
+        serverHandler.addCommand("startgame| ");
+        synchronized(serverHandler){
+            serverHandler.notify();
+        }
     }
     
     private void guess(){
@@ -89,7 +99,7 @@ public class ClientPanel extends Panel {
         host=hostTextField.getText().equals("")?"localhost":hostTextField.getText();
         serverHandler=new ServerHandler(this, port, host);
         serverHandler.start();
-        serverHandler.addCommand("startgame| ");
+        serverHandler.addCommand("startgame|as");
     }
     
     public void connected(){

@@ -24,6 +24,8 @@ import java.util.logging.Logger;
 public class ClientHandler extends Thread {
     private final Socket socket;
     private int failedAttempts=10;
+    private int score=0;
+    private String currentWord;
     
     public ClientHandler(Socket clientSocket){
         this.socket=clientSocket;
@@ -31,11 +33,6 @@ public class ClientHandler extends Thread {
     
     @Override
     public void run(){
-        String currentWord=getRandomWord();
-        System.out.println("Server: Selected word = "+currentWord);
-        if(currentWord==null)
-            return;
-        
         BufferedInputStream in=null;
         BufferedOutputStream out=null;
         try {
@@ -51,12 +48,12 @@ public class ClientHandler extends Thread {
         try {
             while(message!=null){
                 System.out.println("Server: Waiting for client");
-                String d=getClientResponse(in, msg);
+                String d=getClientResponse(in, msg).toLowerCase();
                 System.out.println("Server: Response = "+d);
                 String[] response=d.split("\\|");
                 System.out.println("Server: Response length = "+response.length);
                 if(response.length==2)
-                    message=tryParseCommand(response[0], response[1], correctLetters, currentWord);
+                    message=tryParseCommand(response[0], response[1], correctLetters);
                 
                 System.out.println("Message = "+message);
                 
@@ -66,7 +63,7 @@ public class ClientHandler extends Thread {
             }
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-        } finally{
+        } finally {
             try {
                 if(in!=null)
                     in.close();
@@ -82,16 +79,16 @@ public class ClientHandler extends Thread {
     
     private String constructWordMessage(String currentWord, ArrayList<Character> correctLetters) {
         String hiddenWord=getHiddenWord(currentWord, correctLetters);
-        String message=hiddenWord+"|"+failedAttempts;
+        String message=hiddenWord+", failed attempts = "+failedAttempts+", score = "+score;
         return message;
     }
     
-    private String tryParseCommand(String command, String data, ArrayList<Character> list, String word){
+    private String tryParseCommand(String command, String data, ArrayList<Character> list){
         System.out.println("command = '"+command+", data = "+data);
         String message=null;
         if(command.equals("guess")){
             if(data.length()==1){
-                if(word.contains(Character.toString(data.charAt(0)))){
+                if(currentWord.contains(Character.toString(data.charAt(0)))){
                     if(!list.contains(data.charAt(0))){
                         list.add(data.charAt(0));
                         System.out.println("Added '"+data.charAt(0)+"'");
@@ -99,19 +96,32 @@ public class ClientHandler extends Thread {
                 }else{
                     failedAttempts--;
                 }
-                message=constructWordMessage(word, list);
+                message=constructWordMessage(currentWord, list);
+            }else if(data.length()==currentWord.length()){
+                if(data.equals(currentWord)){
+                    score++;
+                    message="Congratulations! Score = "+score;
+                }else{
+                    failedAttempts--;
+                    message=constructWordMessage(currentWord, list);
+                }
             }else{
-                failedAttempts--;
+               failedAttempts--;
+               message=constructWordMessage(currentWord, list);
             }
-            if(data.equals(word) || containsList(word, list)){
-                message="Congratulations! Score = "+failedAttempts;
-            } else if(failedAttempts==0){
+            if(failedAttempts==0){
+                score--;
                 message="GAME OVER!";
+            }else if(containsList(currentWord, list)){
+                score++;
+                message="Congratulations! Word = "+currentWord+", score = "+score;
             }
         } else if(command.equals("close")){
             message=null;
         } else if(command.equals("startgame")){
-            message=constructWordMessage(word, list);
+            currentWord=getRandomWord().toLowerCase();
+            System.out.println("Server: Selected word = "+currentWord);
+            message=constructWordMessage(currentWord, list);
         }
         return message;
     }
