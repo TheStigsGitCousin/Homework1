@@ -60,6 +60,7 @@ public class ClientPanel extends Panel {
         guessTextField.addActionListener((ActionEvent e)->{ guess(); });
         guessTextField.setEnabled(false);
         newGameButton.addActionListener((ActionEvent e)->{ newGame();});
+        newGameButton.setEnabled(false);
         JPanel gamePanel=new JPanel();
         gamePanel.setLayout(new BorderLayout());
         JPanel guessPanel=new JPanel();
@@ -76,6 +77,7 @@ public class ClientPanel extends Panel {
     
     private void newGame(){
         serverHandler.addCommand("startgame| ");
+        guessButton.setEnabled(true);
         synchronized(serverHandler){
             serverHandler.notify();
         }
@@ -83,9 +85,7 @@ public class ClientPanel extends Panel {
     
     private void guess(){
         serverHandler.addCommand("guess|"+guessTextField.getText());
-        synchronized(serverHandler){
-            serverHandler.notify();
-        }
+        guessTextField.setText("");
     }
     
     private void connect(){
@@ -110,6 +110,7 @@ public class ClientPanel extends Panel {
             {
                 guessButton.setEnabled(true);
                 guessTextField.setEnabled(true);
+                newGameButton.setEnabled(true);
             }
         });
     }
@@ -134,6 +135,8 @@ public class ClientPanel extends Panel {
             {
                 System.out.println("Client: Response = "+response);
                 currentGuessLabel.setText(response);
+                if(response.contains("GAME OVER! Score ") || response.contains("Congratulations! Word"))
+                    guessButton.setEnabled(false);
             }
         });
     }

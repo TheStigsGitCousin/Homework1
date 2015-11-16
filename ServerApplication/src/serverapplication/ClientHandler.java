@@ -26,6 +26,7 @@ public class ClientHandler extends Thread {
     private int failedAttempts=10;
     private int score=0;
     private String currentWord;
+    private boolean isFinished=false;
     
     public ClientHandler(Socket clientSocket){
         this.socket=clientSocket;
@@ -52,18 +53,24 @@ public class ClientHandler extends Thread {
                 System.out.println("Server: Response = "+d);
                 String[] response=d.split("\\|");
                 System.out.println("Server: Response length = "+response.length);
+                
                 if(response.length==2)
                     message=tryParseCommand(response[0], response[1], correctLetters);
                 
                 System.out.println("Message = "+message);
                 
                 System.out.println("Letters size = '"+correctLetters.size());
-                out.write(message.getBytes());
-                out.flush();
+                if(message!=null){
+                    out.write(message.getBytes());
+                    out.flush();
+                }
             }
         } catch (IOException ex) {
             Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, ex);
-        } finally {
+        } catch(Exception e){
+            Logger.getLogger(ClientHandler.class.getName()).log(Level.SEVERE, null, e);
+        }
+        finally {
             try {
                 if(in!=null)
                     in.close();
@@ -86,7 +93,7 @@ public class ClientHandler extends Thread {
     private String tryParseCommand(String command, String data, ArrayList<Character> list){
         System.out.println("command = '"+command+", data = "+data);
         String message=null;
-        if(command.equals("guess")){
+        if(command.equals("guess") && !isFinished){
             if(data.length()==1){
                 if(currentWord.contains(Character.toString(data.charAt(0)))){
                     if(!list.contains(data.charAt(0))){
@@ -100,18 +107,20 @@ public class ClientHandler extends Thread {
             }else if(data.length()==currentWord.length()){
                 if(data.equals(currentWord)){
                     score++;
-                    message="Congratulations! Score = "+score;
+                    message="Congratulations! Word = "+currentWord+", score = "+score;
+                    isFinished=true;
                 }else{
                     failedAttempts--;
                     message=constructWordMessage(currentWord, list);
                 }
             }else{
-               failedAttempts--;
-               message=constructWordMessage(currentWord, list);
+                failedAttempts--;
+                message=constructWordMessage(currentWord, list);
             }
             if(failedAttempts==0){
                 score--;
-                message="GAME OVER!";
+                message="GAME OVER! Score = "+score;
+                isFinished=true;
             }else if(containsList(currentWord, list)){
                 score++;
                 message="Congratulations! Word = "+currentWord+", score = "+score;
@@ -119,6 +128,9 @@ public class ClientHandler extends Thread {
         } else if(command.equals("close")){
             message=null;
         } else if(command.equals("startgame")){
+            isFinished=false;
+            list=new ArrayList<Character>();
+            failedAttempts=10;
             currentWord=getRandomWord().toLowerCase();
             System.out.println("Server: Selected word = "+currentWord);
             message=constructWordMessage(currentWord, list);
@@ -169,7 +181,7 @@ public class ClientHandler extends Thread {
         }
         Random r = new Random();
         int Low = 0;
-        int High = 100;
+        int High = 25143;
         int R = r.nextInt(High-Low) + Low;
         for(int i=0;i<R;i++)
             scanner.next();

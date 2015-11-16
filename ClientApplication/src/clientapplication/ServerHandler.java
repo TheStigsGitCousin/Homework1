@@ -38,33 +38,44 @@ public class ServerHandler extends Thread {
         connect();
         gui.connected();
         byte[] message=new byte[1024];
-        while(true){
-            try {
-                synchronized(this){
-                    while(commands.isEmpty()){
-                        System.out.println("Client: Waiting for command");
-                        this.wait();
+        try{
+            while(true){
+                try {
+                    synchronized(this){
+                        while(commands.isEmpty()){
+                            System.out.println("Client: Waiting for command");
+                            this.wait();
+                        }
+                        System.out.println("Client: Writing command");
+                        out.write(commands.take().getBytes());
+                        out.flush();
+                        
+                        String response=getServerResponse(message);
+                        System.out.println("Client: Server response = "+response);
+                        gui.messageReceived(response);
                     }
-                    System.out.println("Client: Writing command");
-                    out.write(commands.take().getBytes());
-                    out.flush();
-                    
-                    String response=getServerResponse(message);
-                    System.out.println("Client: Server response = "+response);
-                    gui.messageReceived(response);
+                } catch (InterruptedException ex) {
+                    gui.statusChanged(ex.toString());
+                    break;
+                } catch (IOException ex) {
+                    gui.statusChanged(ex.toString());
                 }
-            } catch (InterruptedException ex) {
-                gui.statusChanged(ex.toString());
-                break;
-            } catch (IOException ex) {
-                gui.statusChanged(ex.toString());
             }
-        }
+        }catch(Exception e){}
     }
     
     public void addCommand(String command){
         System.out.println("Client: Added command = "+command);
         commands.add(command);
+        ServerHandler cu=this;
+        (new Thread(new Runnable(){
+            @Override
+            public void run() {
+                synchronized(cu){
+                    cu.notify();
+                }
+            }
+        })).start();
     }
     
     private String getServerResponse(byte[] message) throws IOException {
