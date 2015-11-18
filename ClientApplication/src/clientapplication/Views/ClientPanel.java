@@ -84,8 +84,10 @@ public class ClientPanel extends Panel {
     }
     
     private void guess(){
-        serverHandler.addCommand("guess|"+guessTextField.getText());
-        guessTextField.setText("");
+        if(!guessTextField.getText().equals("")){
+            serverHandler.addCommand("guess|"+guessTextField.getText());
+            guessTextField.setText("");
+        }
     }
     
     private void connect(){
@@ -111,6 +113,7 @@ public class ClientPanel extends Panel {
                 guessButton.setEnabled(true);
                 guessTextField.setEnabled(true);
                 newGameButton.setEnabled(true);
+                statusMessageLabel.setText("");
             }
         });
     }

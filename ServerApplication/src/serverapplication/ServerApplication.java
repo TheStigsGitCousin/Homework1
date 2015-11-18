@@ -22,8 +22,13 @@ public class ServerApplication {
      */
     public static void main(String[] args) {
         try {
-            // TODO code application logic here
-            ServerSocket serverSocket=new ServerSocket(8080);
+            int port=8080;
+            if(args.length==1){
+                try{
+                    port=Integer.parseInt(args[0]);
+                }catch(NumberFormatException e){e.printStackTrace();}
+            }
+            ServerSocket serverSocket=new ServerSocket(port);
             while(true){
                 Socket clientSocket=serverSocket.accept();
                 (new ClientHandler(clientSocket)).start();
